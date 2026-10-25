@@ -1,0 +1,26 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m0plus",
+    "extra_flags": "-DSTM32L0 -DSTM32L071xx",
+    "f_cpu": "16000000L",
+    "mcu": "stm32l071cbt6",
+    "product_line": "STM32L071xx"
+  },
+  "debug": {
+    "default_tools": ["stlink"],
+    "jlink_device": "STM32L071CB",
+    "openocd_target": "stm32l0",
+    "svd_path": "STM32L0x1.svd"
+  },
+  "frameworks": ["stm32cube", "cmsis"],
+  "name": "sailoQ remote (STM32L071CBT6)",
+  "upload": {
+    "maximum_ram_size": 20480,
+    "maximum_size": 131072,
+    "protocol": "stlink",
+    "protocols": ["stlink", "jlink", "cmsis-dap", "blackmagic"]
+  },
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32l071cb.html",
+  "vendor": "ST"
+}
