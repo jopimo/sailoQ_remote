@@ -82,6 +82,7 @@ Pines libres: PA11, PA12, PB11, PC13, PH0 y PH1.
   - Reloj y periféricos escritos a mano en `src/periph.c`.
   - `include/stm32l0xx_hal_conf.h` solo activa los módulos que se usan.
   - La placa se define en `boards/sailoq_remote_l071cb.json`, porque PlatformIO no trae una para el L071CB. Si PlatformIO protesta por el script del enlazador, añade `board_build.ldscript` con uno de 128 KB de flash y 20 KB de RAM.
+- **Repositorio:** `git@github.com:jopimo/sailoQ_remote.git` (privado, rama `main`, acceso por SSH). La librería de radio va en su propio repositorio (`jopimo/sailoQ_radio_nRF24L01`).
 - **Compilar:** botón "Build". **Grabar:** botón "Upload" con ST‑Link. **Depurar:** F5. **Monitor serie:** 115200.
 - **Estructura:**
   - `src/main.c`: arranque, bucle principal (teclas cada 10 ms), medidas cada 2 s, dormir/despertar y corte por batería baja.
