@@ -21,6 +21,7 @@ Así se reparte el trabajo en el sistema:
 - `PROTOCOLO_RADIO.md` y `include/sq_proto.h`: el contrato;
 - `sq_mando.c` (lo usa este mando) y `sq_receptor.c` (lo usarán la base y el actuador);
 - tiene su propio `CLAUDE.md` con sus reglas y su lista de tareas (R1…). Si cambias algo allí, pasa su prueba (`sh test/host/probar.sh` dentro de la librería).
+- **`../sailoQ_radio/COORDINACION.md` es el tablón común de todas las instancias** (estado de cada proyecto, avisos entre ellas y decisiones de José). Al empezar una sesión: `git -C ../sailoQ_radio pull` y leerlo. Al terminar algo que afecte a otros: actualizarlo, y commit + push de la librería.
 
 ### Cómo trabajar con José
 - Es aficionado a la electrónica, no experto, y viene de Arduino. **Escríbele en español** y explica las cosas sin dar por supuesto mucho conocimiento previo.
