@@ -65,9 +65,11 @@ Guía paso a paso para cuando lleguen las placas. **Ve en orden.** Si un paso fa
 4. Acerca el imán a la marca del reed SW9, en la esquina derecha bajo la pantalla: el mando se reinicia.
 
 ## 6. Radio con la base
-Esto solo es posible cuando la lite use la librería `sailoQ_radio` (tarea R4 de la librería; protocolo en `../sailoQ_radio/PROTOCOLO_RADIO.md`).
-1. AJUSTES → BASE → OK. El mando muestra "BUSCANDO BASE".
-2. Pulsa el botón de emparejar de la lite: aparece "EMPAREJADO" y el nombre.
+La lite ya usa la librería `sailoQ_radio` (R4, 2026-11-02). Cómo funciona el emparejamiento: apartado 4 de `../sailoQ_radio/PROTOCOLO_RADIO.md`. Los dos pasos siguientes tienen que hacerse dentro del mismo minuto.
+1. En la lite: ve a la página 6/6 de su pantalla y mantén SETUP 1,5 s (modo emparejar durante 60 s).
+2. En el mando: AJUSTES → BASE → OK (K6). Muestra "BUSCANDO BASE" y, en unos segundos, "EMPAREJADO" y el nombre "LITE".
+   - Si a los 60 s pone "NO ENCONTRADO": comprueba que la lite seguía en modo emparejar y que los dos módulos nRF24 responden ("RADIO OK" al arrancar el mando; página 6/6 en la lite).
+   - Apunta el resultado en `../sailoQ_radio/COORDINACION.md` (tarea R2).
 3. Sal con K5: aparecen BIDATA, VIENTO y PILOTO.
 4. PILOTO, primero **con el piloto en el puerto y el barco amarrado**:
    - STBY (K5) actúa al momento;
