@@ -28,10 +28,9 @@ volatile uint8_t   rtc_woke;
 
 void Error_Handler(void)
 {
-    __disable_irq();
-    /* Sin LEDs propios: se deja la retroiluminacion encendida fija como aviso y se espera al watchdog */
-    HAL_GPIO_WritePin(LCD_BL_PORT, LCD_BL_PIN, GPIO_PIN_SET);
-    while (1) { }
+    /* Fallo al configurar el reloj o un periferico: se reinicia el micro. No se espera al watchdog
+     * porque puede que aun no este en marcha (el reloj se configura antes). */
+    NVIC_SystemReset();
 }
 
 void SystemClock_Config(void)
@@ -231,6 +230,10 @@ uint16_t adc_read(uint32_t channel)
 
 uint16_t adc_vdda_mv(void)
 {
+    /* En modo Stop la referencia interna se apaga (ULP) y al despertar el micro no la espera (FWU):
+     * hay que esperar a que este lista (unos 3 ms como mucho) antes de medirla */
+    uint32_t t0 = HAL_GetTick();
+    while (!(PWR->CSR & PWR_CSR_VREFINTRDYF) && HAL_GetTick() - t0 < 5) { }
     uint16_t raw = adc_read(ADC_CHANNEL_VREFINT);
     if (raw == 0) return 3300;
     return (uint16_t)(3000u * (uint32_t)(*VREFINT_CAL_ADDR) / raw);   /* VREFINT_CAL medido de fabrica a 3,0 V */
@@ -296,6 +299,9 @@ void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *h) { (void)h; rtc_wok
 
 static void wdg_init(void)
 {
+    /* Parado mientras el ST-Link tiene el programa detenido (F5, puntos de ruptura) */
+    __HAL_RCC_DBGMCU_CLK_ENABLE();
+    __HAL_DBGMCU_FREEZE_IWDG();
     hiwdg.Instance = IWDG;
     hiwdg.Init.Prescaler = IWDG_PRESCALER_256;   /* LSI ~37 kHz / 256 = 145 Hz */
     hiwdg.Init.Window = IWDG_WINDOW_DISABLE;

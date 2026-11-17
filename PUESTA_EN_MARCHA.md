@@ -61,7 +61,7 @@ Guía paso a paso para cuando lleguen las placas. **Ve en orden.** Si un paso fa
 ## 5. Bajo consumo
 1. Deja el mando sin tocar: a los 50 s baja el brillo y a los 60 s se apaga todo.
 2. Mide la corriente de la pila en reposo, con un amperímetro en serie con la pila y el USB quitado. **Objetivo: menos de 20 µA** (tarea F7). Si es mucho más, apunta el valor.
-3. Pulsa una tecla: el mando se enciende, pero **esa primera pulsación no hace nada**.
+3. Pulsa una tecla: el mando se enciende, pero **esa tecla no hace nada hasta soltarla**. Pruébalo en la página MOLINETE manteniendo K1 para despertar: el molinete **no** debe moverse.
 4. Acerca el imán a la marca del reed SW9, en la esquina derecha bajo la pantalla: el mando se reinicia.
 
 ## 6. Radio con la base
@@ -73,7 +73,7 @@ La lite ya usa la librería `sailoQ_radio` (R4, 2026-11-02). Cómo funciona el e
 3. Sal con K5: aparecen BIDATA, VIENTO y PILOTO.
 4. PILOTO, primero **con el piloto en el puerto y el barco amarrado**:
    - STBY (K5) actúa al momento;
-   - AUTO (K6) con pulsación larga;
+   - K6 mantenida cambia de modo: desde STANDBY pasa a AUTO; desde AUTO, a VIENTO (si hay datos de viento); desde VIENTO, a AUTO;
    - −1/+1/−10/+10 actúan al soltar la tecla.
 
 ## 7. Actualizar el firmware sin ST-Link (opcional)

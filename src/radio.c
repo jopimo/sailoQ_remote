@@ -15,8 +15,15 @@ static uint8_t   pair_dev;
 int      radio_init(void)      { return sqm_init(); }
 int      radio_ok(void)        { return sqm_ok(); }
 uint32_t radio_remote_id(void) { return sqm_id(); }
-void     radio_wake(void)      { sqm_wake(); }
 void     radio_sleep(void)     { sqm_sleep(); }
+
+void radio_wake(void)
+{
+    /* HAL_GetTick() no avanza en modo Stop: tras dormir, un acuse "de hace 1 s" puede ser de hace horas.
+     * Se olvida para no mostrar datos viejos como actuales; el primer sondeo los renueva. */
+    st_base.last_ok_ms = st_act.last_ok_ms = 0;
+    sqm_wake();
+}
 
 /* 'now' es HAL_GetTick(), el mismo reloj que usa la libreria (sq_port_ms) */
 int radio_poll_base(uint8_t page, uint32_t now) { (void)now; return sqm_poll_base(&cfg.base, &st_base, page, &nav); }

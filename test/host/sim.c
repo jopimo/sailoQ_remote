@@ -37,6 +37,7 @@ void lcd_contrast(uint8_t e) { (void)e; }
 void buz_beep(uint16_t ms) { (void)ms; }
 uint8_t keys_down_mask;
 uint8_t keys_down(void) { return keys_down_mask; }
+uint8_t keys_any(void) { return keys_down_mask; }
 uint16_t keys_held_ms(uint8_t k, uint32_t now) { (void)k; (void)now; return 0; }
 
 static char last_name[64];
@@ -59,8 +60,34 @@ static void shot(const char *name, int page_key_presses)
 
 static void key(uint8_t k, kev_type_t t) { kev_t e = { t, k, 100 }; ui_key(&e, tick); }
 
+static int checks, fails;
+#define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("  FALLO linea %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
+
+extern void ui_test_fmt(char *b, int32_t v, int dec);
+extern int  ui_test_next_mode(int cur, int wind);
+
+static void check_logic(void)
+{
+    static const struct { int32_t v; int dec; const char *s; } f[] = {
+        { 0, 1, "0.0" }, { 5, 1, "0.5" }, { 64, 1, "6.4" }, { 1234, 1, "123.4" }, { -5, 1, "-0.5" },
+        { -42, 0, "-42" }, { 7, 0, "7" }, { 0, 0, "0" },
+    };
+    char b[16];
+    for (unsigned i = 0; i < sizeof f / sizeof f[0]; i++) {
+        ui_test_fmt(b, f[i].v, f[i].dec);
+        CHECK(!strcmp(b, f[i].s), "fmt_fixed(%ld, %d) = \"%s\" (esperado \"%s\")", (long)f[i].v, f[i].dec, b, f[i].s);
+    }
+    /* Circulo de modos de K6 mantenida */
+    CHECK(ui_test_next_mode(PILOT_STBY, 1) == PILOT_AUTO, "STANDBY -> AUTO");
+    CHECK(ui_test_next_mode(PILOT_AUTO, 1) == PILOT_WIND, "AUTO con viento -> VIENTO");
+    CHECK(ui_test_next_mode(PILOT_AUTO, 0) == -1, "AUTO sin viento -> nada");
+    CHECK(ui_test_next_mode(PILOT_WIND, 1) == PILOT_AUTO, "VIENTO -> AUTO");
+    CHECK(ui_test_next_mode(PILOT_TRACK, 1) == PILOT_AUTO, "TRACK -> AUTO");
+}
+
 int main(void)
 {
+    check_logic();
     cfg_defaults();
     strcpy(cfg.base.name, "LITE"); cfg.base.paired = 1;
     strcpy(cfg.act.name, "MOLINETE"); cfg.act.paired = 1;
@@ -73,6 +100,8 @@ int main(void)
     ui_init(tick);
     shot("01_bidata", 0);
     cfg.datos_campos = 3; shot("02_tridata", 0); cfg.datos_campos = 2;
+    nav.sog = 40; nav.valid &= (uint16_t)~NV_STW; shot("01b_bidata_0_4_kn", 0);    /* debe verse "0.4", no ".4" */
+    nav.valid |= NV_STW;
     key(K_NEXT, KEV_RELEASE); shot("03_viento", 0);
     key(K_NEXT, KEV_RELEASE); shot("04_piloto", 0);
     key(K_NEXT, KEV_RELEASE); act.func = ACT_MOLINETE_BAJAR; act.flags |= AF_RUNNING; shot("05_molinete", 0);
@@ -87,5 +116,6 @@ int main(void)
     key(K_2, KEV_PRESS); key(K_6, KEV_RELEASE); shot("09_emparejando", 0);
     strcpy(last_name, "10_bateria_baja"); ui_battery_low_screen();
     printf("pantallas en test/host/out\n");
-    return 0;
+    printf("interfaz: %d comprobaciones, %d fallos\n", checks, fails);
+    return fails ? 1 : 0;
 }

@@ -94,21 +94,27 @@ Pines libres: PA11, PA12, PB11, PC13, PH0 y PH1.
   - `src/keys.c`: antirrebote y eventos PRESS, LONG (600 ms) y RELEASE.
   - `src/ui.c`: páginas y lógica de teclas.
   - `src/power.c`: batería, carga, luz y modo Stop. `src/buzzer.c`: pitidos. `src/config.c`: ajustes en la EEPROM (emparejamientos, apagado, brillo, contraste, pitido y nº de campos).
-  - `test/host/`: compila la interfaz en el PC y saca PNG de todas las pantallas (`sh test/host/probar.sh`). **Úsalo después de cambiar algo de `ui.c` o `gfx.c`** y mira las imágenes de `test/host/out/`.
+  - `test/host/`: pruebas en el PC (`sh test/host/probar.sh`, tienen que acabar con 0 fallos):
+    - `test_teclas.c`: `keys.c` con los pines simulados (antirrebote, eventos y la tecla que despierta);
+    - `sim.c`: comprobaciones de `ui.c` (formato de números, círculo de modos) y PNG de todas las pantallas en `test/host/out/`.
+    - **Úsalo después de cambiar algo de `ui.c`, `gfx.c` o `keys.c`** y mira las imágenes.
 - **Páginas:** solo se muestran las de lo que está emparejado.
   - Con base: DATOS (bidata o tridata), VIENTO y PILOTO.
   - Con actuador: MOLINETE y HÉLICE.
   - AJUSTES: manteniendo PÁG◄ + PÁG► 3 s. Sale sola en el primer arranque.
   - Textos sin acentos (la fuente es ASCII).
 - **Teclas del piloto:**
-  - K5 STBY actúa **al pulsar** (seguridad); K6 AUTO con pulsación larga.
+  - K5 STBY actúa **al pulsar** (seguridad).
+  - K6 mantenida (0,6 s) cambia de modo, como la tecla 6 del mando de 433 MHz de la lite: STANDBY → AUTO → VIENTO (solo con datos de viento) → AUTO. El modo actual es el que anuncia el piloto o, si no llega, el último que puso el mando. TRACK no entra en el círculo porque el mando no sabe si hay ruta (tarea F13).
   - K1 −1, K2 +1, K3 −10 y K4 +10 actúan al soltar.
-  - Combinaciones (mantener 0,5 s): K1+K3 virada a babor, K2+K4 virada a estribor, K5+K6 modo viento.
+  - Combinaciones (mantener 0,5 s): K1+K3 virada a babor, K2+K4 virada a estribor. (K5+K6 ya no se usa: K5 actúa al pulsar y mandaba siempre un STANDBY antes del modo viento.)
 - **Molinete y hélice:** K1/K2 solo mientras se mantienen. El mando repite la orden cada 100 ms y el actuador para solo a los 300 ms sin recibir nada.
 - **Energía:**
   - Tras `cfg.apagado_s` sin teclas (60 s por defecto; los últimos 10 s con el brillo a un tercio) se apagan pantalla, retroiluminación y radio, y el micro entra en Stop.
   - El RTC lo despierta cada 8 s solo para refrescar el watchdog.
-  - **La tecla que despierta no actúa.**
+  - **La tecla que despierta no actúa** hasta soltarla: `keys_ignore_held()` la quita de los eventos y de `keys_down()`, así que tampoco mueve el molinete ni hace combinaciones. Lo mismo con una tecla pulsada durante el arranque.
+  - `HAL_GetTick()` no avanza en modo Stop: al despertar, `radio_wake()` olvida el último acuse para no enseñar datos viejos como actuales.
+  - Al dormir se guardan los ajustes (`cfg_save()` solo escribe lo que cambió).
   - Batería por debajo de 3,30 V (3 medidas seguidas y sin USB): aviso y a dormir. Por debajo de 3,40 V, el icono de la batería parpadea.
 - **Ocupación:** unos 33 KB de flash y 3,5 KB de RAM estática (PlatformIO, arm‑none‑eabi‑gcc 7.2.1, framework‑stm32cubel0 1.12.4, 2026‑10‑25). Sin avisos con `-Wall -Wextra` en nuestro código (solo salen dos de la HAL de ST).
 - **Nada de este código se ha probado todavía en la placa.** Cada parte se valida en el prototipo, una a una: sigue `PUESTA_EN_MARCHA.md`.
@@ -128,6 +134,7 @@ Las tareas de radio comunes a todos los equipos están en la lista de la librer�
 | F10 | Confirmar con el piloto real el origen del datagrama 0x86 (X=1, como en la lite) | pendiente (base) |
 | F11 | Página DATOS: elegir qué campos van en bidata/tridata (hoy: velocidad STW/SOG, profundidad y AWS) | pendiente (José) |
 | F12 | Usar los 4 grises del ST7571 (por ahora solo blanco y negro) | opcional |
+| F13 | TRACK en el círculo de modos de K6: hace falta que la base diga si hay ruta (un bit nuevo en `valid` de `PKT_NAV`, p. ej. `NV_ROUTE`). Es un cambio del contrato de la librería: necesita la aprobación de José | pendiente (José) |
 
 ## Archivos del proyecto (carpeta superior)
 - `SCH_sailoQ-remote_v9_Claude.json`: esquema vigente (EasyEDA Std, 6 hojas).

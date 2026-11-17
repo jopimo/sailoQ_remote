@@ -14,9 +14,10 @@ typedef struct { kev_type_t type; uint8_t key; uint16_t ms; } kev_t;   /* ms = t
 void     keys_init(void);
 void     keys_scan(uint32_t now_ms);      /* llamar cada 10 ms: antirrebote y eventos */
 int      keys_get(kev_t *ev);             /* 1 si habia un evento pendiente */
-uint8_t  keys_down(void);                 /* mascara de teclas pulsadas ahora (ya filtrada) */
+uint8_t  keys_down(void);                 /* mascara de teclas pulsadas ahora (filtrada y sin las ignoradas) */
+uint8_t  keys_any(void);                  /* igual, pero contando tambien las ignoradas */
 uint16_t keys_held_ms(uint8_t key, uint32_t now_ms);
 uint8_t  keys_raw(void);                  /* lectura directa de los pines (1 = pulsada) */
-void     keys_flush(void);
+void     keys_ignore_held(void);          /* ignora las teclas pulsadas ahora hasta que se suelten (al despertar) */
 
 #endif

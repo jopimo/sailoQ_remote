@@ -1,6 +1,8 @@
 /*
  * keys.c - Lectura de las 8 teclas de silicona conductiva (pull-up interno, pulsada = 0).
  * Antirrebote de 30 ms (3 lecturas iguales a 10 ms) y cola de eventos: PRESS, LONG (a 600 ms) y RELEASE.
+ * Las teclas que estaban pulsadas al arrancar o al despertar se ignoran hasta que se sueltan: no dan
+ * eventos ni aparecen en keys_down() (asi la tecla que despierta no mueve el molinete, por ejemplo).
  */
 #include "keys.h"
 #include "board.h"
@@ -10,6 +12,7 @@ static const uint16_t pins[K_COUNT] = { KEY_PREV_PIN, KEY_NEXT_PIN, KEY1_PIN, KE
 static uint8_t  stable, last, same;
 static uint32_t t_down[K_COUNT];
 static uint8_t  long_sent;
+static uint8_t  ignored;                    /* pulsadas al arrancar o al despertar: no cuentan hasta soltarlas */
 static kev_t    q[16];
 static uint8_t  qh, qt;
 
@@ -28,9 +31,18 @@ uint8_t keys_raw(void)
     return m;
 }
 
-void keys_init(void) { stable = last = keys_raw(); same = 0; qh = qt = 0; long_sent = stable; }
-void keys_flush(void) { qh = qt = 0; long_sent = stable; }
-uint8_t keys_down(void) { return stable; }
+void keys_init(void) { keys_ignore_held(); }
+
+void keys_ignore_held(void)
+{
+    /* Las pulsadas ahora pasan a "estables" sin esperar al antirrebote (para que no den PRESS) y se ignoran */
+    stable = last = keys_raw();
+    same = 0; qh = qt = 0;
+    long_sent = ignored = stable;
+}
+
+uint8_t keys_down(void) { return (uint8_t)(stable & ~ignored); }
+uint8_t keys_any(void)  { return stable; }
 
 uint16_t keys_held_ms(uint8_t key, uint32_t now)
 {
@@ -49,6 +61,7 @@ void keys_scan(uint32_t now)
         for (uint8_t k = 0; k < K_COUNT; k++) {
             if (!(ch & KB(k))) continue;
             if (r & KB(k)) { t_down[k] = now; long_sent &= (uint8_t)~KB(k); push(KEV_PRESS, k, 0); }
+            else if (ignored & KB(k)) ignored &= (uint8_t)~KB(k);  /* se suelta sin evento */
             else { uint32_t d = now - t_down[k]; push(KEV_RELEASE, k, d > 65535u ? 65535u : (uint16_t)d); }
         }
         stable = r;

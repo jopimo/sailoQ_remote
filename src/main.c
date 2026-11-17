@@ -4,7 +4,7 @@
  * Funcionamiento general:
  *   - Despierto: lee teclas cada 10 ms, habla por radio con la base / el actuador y refresca la pantalla.
  *   - Tras cfg.apagado_s sin tocar ninguna tecla: apaga pantalla, retroiluminacion y radio y duerme en
- *     modo Stop (unos uA). Una tecla lo despierta; esa primera pulsacion solo despierta (no actua).
+ *     modo Stop (unos uA). Una tecla lo despierta; esa tecla no actua hasta soltarla (keys_ignore_held).
  *   - Bateria por debajo de VBAT_CUT_MV: aviso y a dormir.
  */
 #include "periph.h"
@@ -17,7 +17,6 @@
 #include "ui.h"
 
 static uint32_t t_key, t_scan, t_meas;
-static uint8_t  awake_ignore;           /* 1 = ignorar teclas hasta soltarlas todas (la que nos desperto) */
 static uint8_t  low_count;
 
 static void backlight_update(uint32_t now)
@@ -36,6 +35,7 @@ static void backlight_update(uint32_t now)
 
 static void go_sleep(void)
 {
+    cfg_save();                                 /* por si se durmio en AJUSTES sin salir (solo escribe lo que cambio) */
     bl_set(0);
     lcd_sleep();
     radio_sleep();
@@ -45,9 +45,10 @@ static void go_sleep(void)
     dbg_printf("despierto\r\n");
     lcd_wake();
     radio_wake();
-    awake_ignore = 1;
+    keys_ignore_held();                         /* la tecla que lo desperto no actua hasta soltarla */
     t_key = HAL_GetTick();
     power_measure();
+    backlight_update(t_key);
     ui_wake(t_key);
 }
 
@@ -73,7 +74,7 @@ int main(void)
 
     ui_init(HAL_GetTick());
     t_key = HAL_GetTick();
-    awake_ignore = keys_down() ? 1 : 0;
+    keys_ignore_held();                         /* teclas pulsadas durante el arranque: no actuan */
 
     for (;;) {
         uint32_t now = HAL_GetTick();
@@ -84,19 +85,14 @@ int main(void)
             t_scan = now;
             keys_scan(now);
             kev_t e;
-            while (keys_get(&e)) {
-                t_key = now;
-                if (awake_ignore) continue;
-                ui_key(&e, now);
-            }
-            if (awake_ignore && !keys_down()) { awake_ignore = 0; keys_flush(); }
-            if (keys_down()) t_key = now;
+            while (keys_get(&e)) { t_key = now; ui_key(&e, now); }
+            if (keys_any()) t_key = now;
+            backlight_update(now);              /* el brillo vuelve en cuanto se toca una tecla */
         }
 
         if (now - t_meas >= 2000) {
             t_meas = now;
             power_measure();
-            backlight_update(now);
             if (power_vbat_mv() < VBAT_CUT_MV && !power_charging()) {
                 if (++low_count >= 3) {
                     ui_battery_low_screen();

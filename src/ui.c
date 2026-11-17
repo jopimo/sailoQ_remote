@@ -7,8 +7,10 @@
  *   siempre  -> AJUSTES (manteniendo PAG< y PAG> 3 s; sale sola si no hay nada emparejado)
  *
  * Teclas (4 filas x 2 columnas):   PAG<  PAG>   |   K1 K2   |   K3 K4   |   K5 K6
- *   PILOTO:   K1 -1, K2 +1, K3 -10, K4 +10, K5 STBY (al momento), K6 AUTO (pulsacion larga)
- *             K1+K3 virada a babor, K2+K4 virada a estribor, K5+K6 modo viento (mantener 0,5 s)
+ *   PILOTO:   K1 -1, K2 +1, K3 -10, K4 +10, K5 STBY (al momento)
+ *             K6 mantenida (0,6 s): cambia de modo STANDBY -> AUTO -> VIENTO -> AUTO (como la tecla 6 del
+ *             mando de 433 MHz de la lite; VIENTO solo con datos de viento)
+ *             K1+K3 virada a babor, K2+K4 virada a estribor (mantener 0,5 s)
  *   MOLINETE: K1 SUBIR, K2 BAJAR (solo mientras se mantiene: hombre muerto)
  *   HELICE:   K1 BABOR, K2 ESTRIBOR (solo mientras se mantiene)
  *   AJUSTES:  K1 arriba, K2 abajo, K3 -, K4 +, K5 salir, K6 OK (largo = borrar emparejamiento)
@@ -38,18 +40,19 @@ static uint32_t pair_msg_until;
 static char     pair_msg[24];
 static uint32_t msg_until;
 static char     msg[22];
+static uint8_t  mode_by_remote = PILOT_STBY;   /* ultimo modo que puso el mando (si el piloto no lo anuncia) */
 
 /* ------------------------------------------------------------------ utilidades */
 static void flash_msg(const char *s, uint32_t now, uint32_t ms) { strncpy(msg, s, sizeof msg - 1); msg[sizeof msg - 1] = 0; msg_until = now + ms; dirty = 1; }
 
 static void beep_key(void) { if (cfg.pitido) buz_beep(25); }
 
-/* Numero entero con 'dec' decimales: 1234,1 -> "123.4". Negativos con '-' */
+/* Numero entero con 'dec' decimales: 1234,1 -> "123.4"; 5,1 -> "0.5". Negativos con '-' */
 static void fmt_fixed(char *b, int32_t v, int dec)
 {
     char t[12]; int n = 0, neg = v < 0;
     uint32_t u = neg ? (uint32_t)(-v) : (uint32_t)v;
-    do { t[n++] = (char)('0' + u % 10); u /= 10; if (n == dec) t[n++] = '.'; } while (u || n <= dec);
+    do { t[n++] = (char)('0' + u % 10); u /= 10; if (n == dec) t[n++] = '.'; } while (u || (dec && n <= dec + 1));
     if (neg) t[n++] = '-';
     for (int i = 0; i < n; i++) b[i] = t[n - 1 - i];
     b[n] = 0;
@@ -221,7 +224,7 @@ static void page_piloto(uint32_t now)
     gfx_text(64, 89, l, 1, ALIGN_CENTER);
     gfx_text(3, 100, "-1", 1, ALIGN_LEFT);    gfx_text(125, 100, "+1", 1, ALIGN_RIGHT);    /* fila 2 de teclas */
     gfx_text(3, 109, "-10", 1, ALIGN_LEFT);   gfx_text(125, 109, "+10", 1, ALIGN_RIGHT);   /* fila 3 */
-    gfx_text(3, 118, "STBY", 1, ALIGN_LEFT);  gfx_text(125, 118, "AUTO", 1, ALIGN_RIGHT);  /* fila 4 */
+    gfx_text(3, 118, "STBY", 1, ALIGN_LEFT);  gfx_text(125, 118, "MODO", 1, ALIGN_RIGHT);  /* fila 4 */
     draw_dots(now);
     draw_nolink(&cfg.base, &st_base, now);
 }
@@ -371,8 +374,32 @@ static void leave_settings(void)
 static void pilot(uint8_t code, const char *name, uint32_t now)
 {
     beep_key();
-    if (radio_pilot_key(code, now) == 0) flash_msg(name, now, 800);
-    else { flash_msg("SIN RESPUESTA", now, 1500); buz_beep(300); }
+    if (radio_pilot_key(code, now) == 0) {
+        flash_msg(name, now, 800);
+        if (code == ST_KEY_STBY) mode_by_remote = PILOT_STBY;
+        if (code == ST_KEY_AUTO) mode_by_remote = PILOT_AUTO;
+        if (code == ST_KEY_WIND) mode_by_remote = PILOT_WIND;
+    } else { flash_msg("SIN RESPUESTA", now, 1500); buz_beep(300); }
+}
+
+/* Circulo de modos de K6 mantenida, igual que mando_siguiente_modo() de la lite pero sin TRACK:
+ * el mando no sabe si hay ruta (PKT_NAV no lo dice). Devuelve el modo siguiente o -1 si no hay. */
+static int next_mode(int cur, int wind)
+{
+    if (cur == PILOT_AUTO) return wind ? PILOT_WIND : -1;     /* AUTO -> VIENTO (si hay viento) */
+    return PILOT_AUTO;                                         /* STANDBY, VIENTO o TRACK -> AUTO */
+}
+
+static void pilot_mode_cycle(uint32_t now)
+{
+    /* Modo actual: el que anuncia el piloto o, si no llega, el ultimo que puso el mando */
+    int alive = radio_alive(&st_base, now, 5000);
+    int cur = (alive && (nav.valid & NV_PILOT) && nav.pilot_mode <= PILOT_TRACK) ? nav.pilot_mode : mode_by_remote;
+    int wind = alive && (nav.valid & NV_AWA) && (nav.valid & NV_AWS);
+    int next = next_mode(cur, wind);
+    if (next < 0) { beep_key(); flash_msg("SIN DATOS VIENTO", now, 1500); buz_beep(300); }
+    else if (next == PILOT_WIND) pilot(ST_KEY_WIND, "MODO VIENTO", now);
+    else pilot(ST_KEY_AUTO, "AUTO", now);
 }
 
 void ui_key(const kev_t *e, uint32_t now)
@@ -392,7 +419,7 @@ void ui_key(const kev_t *e, uint32_t now)
     switch (page) {
     case P_PILOTO:
         if (k == K_5 && e->type == KEV_PRESS) { pilot(ST_KEY_STBY, "STANDBY", now); combo_used |= KB(K_5); }   /* STBY al momento */
-        else if (k == K_6 && e->type == KEV_LONG && !(keys_down() & KB(K_5))) { pilot(ST_KEY_AUTO, "AUTO", now); combo_used |= KB(K_6); }
+        else if (k == K_6 && e->type == KEV_LONG) { pilot_mode_cycle(now); combo_used |= KB(K_6); }
         else if (e->type == KEV_RELEASE) {
             if (k == K_1) pilot(ST_KEY_M1, "-1", now);
             if (k == K_2) pilot(ST_KEY_P1, "+1", now);
@@ -486,9 +513,8 @@ void ui_tick(uint32_t now)
         struct { uint8_t a, b, code; const char *name; } cb[] = {
             { K_1, K_3, ST_KEY_TACK_PORT, "VIRADA BABOR" },
             { K_2, K_4, ST_KEY_TACK_STBD, "VIRADA ESTRIBOR" },
-            { K_5, K_6, ST_KEY_WIND, "MODO VIENTO" },
         };
-        for (unsigned i = 0; i < 3; i++) {
+        for (unsigned i = 0; i < sizeof cb / sizeof cb[0]; i++) {
             uint8_t m = (uint8_t)(KB(cb[i].a) | KB(cb[i].b));
             if ((down & m) != m) { combo_done &= (uint8_t)~m; continue; }
             if (!(combo_done & m) && keys_held_ms(cb[i].a, now) > 500 && keys_held_ms(cb[i].b, now) > 500) {
@@ -553,5 +579,8 @@ void ui_tick(uint32_t now)
 }
 
 #ifdef HOST
-void ui_test_enter_settings(void) { enter_settings(); }   /* solo para las pruebas en el PC (test/host) */
+/* Solo para las pruebas en el PC (test/host) */
+void ui_test_enter_settings(void) { enter_settings(); }
+void ui_test_fmt(char *b, int32_t v, int dec) { fmt_fixed(b, v, dec); }
+int  ui_test_next_mode(int cur, int wind) { return next_mode(cur, wind); }
 #endif
