@@ -64,7 +64,7 @@ static int checks, fails;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("  FALLO linea %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
 
 extern void ui_test_fmt(char *b, int32_t v, int dec);
-extern int  ui_test_next_mode(int cur, int wind);
+extern int  ui_test_next_mode(int cur, int wind, int route);
 
 static void check_logic(void)
 {
@@ -77,12 +77,19 @@ static void check_logic(void)
         ui_test_fmt(b, f[i].v, f[i].dec);
         CHECK(!strcmp(b, f[i].s), "fmt_fixed(%ld, %d) = \"%s\" (esperado \"%s\")", (long)f[i].v, f[i].dec, b, f[i].s);
     }
-    /* Circulo de modos de K6 mantenida */
-    CHECK(ui_test_next_mode(PILOT_STBY, 1) == PILOT_AUTO, "STANDBY -> AUTO");
-    CHECK(ui_test_next_mode(PILOT_AUTO, 1) == PILOT_WIND, "AUTO con viento -> VIENTO");
-    CHECK(ui_test_next_mode(PILOT_AUTO, 0) == -1, "AUTO sin viento -> nada");
-    CHECK(ui_test_next_mode(PILOT_WIND, 1) == PILOT_AUTO, "VIENTO -> AUTO");
-    CHECK(ui_test_next_mode(PILOT_TRACK, 1) == PILOT_AUTO, "TRACK -> AUTO");
+    /* Circulo de modos de K6 mantenida (mismos casos que mando_siguiente_modo() de la lite) */
+    static const struct { int cur, wind, route, next; const char *s; } m[] = {
+        { PILOT_STBY,  1, 1, PILOT_AUTO,  "STANDBY -> AUTO" },
+        { PILOT_STBY,  0, 0, PILOT_AUTO,  "STANDBY sin datos -> AUTO" },
+        { PILOT_AUTO,  1, 1, PILOT_WIND,  "AUTO con viento -> VIENTO" },
+        { PILOT_AUTO,  0, 1, PILOT_TRACK, "AUTO sin viento y con ruta -> TRACK" },
+        { PILOT_AUTO,  0, 0, -1,          "AUTO sin viento ni ruta -> nada" },
+        { PILOT_WIND,  1, 1, PILOT_TRACK, "VIENTO con ruta -> TRACK" },
+        { PILOT_WIND,  1, 0, PILOT_AUTO,  "VIENTO sin ruta -> AUTO" },
+        { PILOT_TRACK, 1, 1, PILOT_AUTO,  "TRACK -> AUTO" },
+    };
+    for (unsigned i = 0; i < sizeof m / sizeof m[0]; i++)
+        CHECK(ui_test_next_mode(m[i].cur, m[i].wind, m[i].route) == m[i].next, "%s", m[i].s);
 }
 
 int main(void)

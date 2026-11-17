@@ -105,7 +105,7 @@ Pines libres: PA11, PA12, PB11, PC13, PH0 y PH1.
   - Textos sin acentos (la fuente es ASCII).
 - **Teclas del piloto:**
   - K5 STBY actúa **al pulsar** (seguridad).
-  - K6 mantenida (0,6 s) cambia de modo, como la tecla 6 del mando de 433 MHz de la lite: STANDBY → AUTO → VIENTO (solo con datos de viento) → AUTO. El modo actual es el que anuncia el piloto o, si no llega, el último que puso el mando. TRACK no entra en el círculo porque el mando no sabe si hay ruta (tarea F13).
+  - K6 mantenida (0,6 s) cambia de modo, como la tecla 6 del mando de 433 MHz de la lite: STANDBY → AUTO → VIENTO → TRACK → AUTO. Se salta VIENTO sin datos de viento y TRACK sin ruta (bit `NV_ROUTE` de `PKT_NAV`). Desde AUTO sin viento ni ruta: "SIN VIENTO NI RUTA". El modo actual es el que anuncia el piloto o, si no llega, el último que puso el mando.
   - K1 −1, K2 +1, K3 −10 y K4 +10 actúan al soltar.
   - Combinaciones (mantener 0,5 s): K1+K3 virada a babor, K2+K4 virada a estribor. (K5+K6 ya no se usa: K5 actúa al pulsar y mandaba siempre un STANDBY antes del modo viento.)
 - **Molinete y hélice:** K1/K2 solo mientras se mantienen. El mando repite la orden cada 100 ms y el actuador para solo a los 300 ms sin recibir nada.
@@ -134,7 +134,7 @@ Las tareas de radio comunes a todos los equipos están en la lista de la librer�
 | F10 | Confirmar con el piloto real el origen del datagrama 0x86 (X=1, como en la lite) | pendiente (base) |
 | F11 | Página DATOS: elegir qué campos van en bidata/tridata (hoy: velocidad STW/SOG, profundidad y AWS) | pendiente (José) |
 | F12 | Usar los 4 grises del ST7571 (por ahora solo blanco y negro) | opcional |
-| F13 | TRACK en el círculo de modos de K6: hace falta que la base diga si hay ruta (un bit nuevo en `valid` de `PKT_NAV`, p. ej. `NV_ROUTE`). Es un cambio del contrato de la librería: necesita la aprobación de José | pendiente (José) |
+| F13 | TRACK en el círculo de modos de K6 (bit `NV_ROUTE` en `PKT_NAV`, aprobado por José el 2026-11-17) | hecho en el mando y en la librería (2026-11-17). Falta que la lite ponga el bit (aviso en `COORDINACION.md`); hasta entonces el mando no ofrece TRACK |
 
 ## Archivos del proyecto (carpeta superior)
 - `SCH_sailoQ-remote_v9_Claude.json`: esquema vigente (EasyEDA Std, 6 hojas).

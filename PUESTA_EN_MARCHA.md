@@ -73,7 +73,7 @@ La lite ya usa la librería `sailoQ_radio` (R4, 2026-11-02). Cómo funciona el e
 3. Sal con K5: aparecen BIDATA, VIENTO y PILOTO.
 4. PILOTO, primero **con el piloto en el puerto y el barco amarrado**:
    - STBY (K5) actúa al momento;
-   - K6 mantenida cambia de modo: desde STANDBY pasa a AUTO; desde AUTO, a VIENTO (si hay datos de viento); desde VIENTO, a AUTO;
+   - K6 mantenida cambia de modo: STANDBY → AUTO → VIENTO → TRACK → AUTO, saltándose VIENTO sin datos de viento y TRACK sin ruta activa en el plotter;
    - −1/+1/−10/+10 actúan al soltar la tecla.
 
 ## 7. Actualizar el firmware sin ST-Link (opcional)

@@ -8,8 +8,8 @@
  *
  * Teclas (4 filas x 2 columnas):   PAG<  PAG>   |   K1 K2   |   K3 K4   |   K5 K6
  *   PILOTO:   K1 -1, K2 +1, K3 -10, K4 +10, K5 STBY (al momento)
- *             K6 mantenida (0,6 s): cambia de modo STANDBY -> AUTO -> VIENTO -> AUTO (como la tecla 6 del
- *             mando de 433 MHz de la lite; VIENTO solo con datos de viento)
+ *             K6 mantenida (0,6 s): cambia de modo STANDBY -> AUTO -> VIENTO -> TRACK -> AUTO (como la tecla 6
+ *             del mando de 433 MHz de la lite; VIENTO solo con datos de viento y TRACK solo con ruta)
  *             K1+K3 virada a babor, K2+K4 virada a estribor (mantener 0,5 s)
  *   MOLINETE: K1 SUBIR, K2 BAJAR (solo mientras se mantiene: hombre muerto)
  *   HELICE:   K1 BABOR, K2 ESTRIBOR (solo mientras se mantiene)
@@ -379,15 +379,19 @@ static void pilot(uint8_t code, const char *name, uint32_t now)
         if (code == ST_KEY_STBY) mode_by_remote = PILOT_STBY;
         if (code == ST_KEY_AUTO) mode_by_remote = PILOT_AUTO;
         if (code == ST_KEY_WIND) mode_by_remote = PILOT_WIND;
+        if (code == ST_KEY_TRACK) mode_by_remote = PILOT_TRACK;
     } else { flash_msg("SIN RESPUESTA", now, 1500); buz_beep(300); }
 }
 
-/* Circulo de modos de K6 mantenida, igual que mando_siguiente_modo() de la lite pero sin TRACK:
- * el mando no sabe si hay ruta (PKT_NAV no lo dice). Devuelve el modo siguiente o -1 si no hay. */
-static int next_mode(int cur, int wind)
+/* Circulo de modos de K6 mantenida, igual que mando_siguiente_modo() de la lite.
+ * wind = hay datos de viento; route = la base tiene ruta (NV_ROUTE). Devuelve el modo siguiente o -1. */
+static int next_mode(int cur, int wind, int route)
 {
-    if (cur == PILOT_AUTO) return wind ? PILOT_WIND : -1;     /* AUTO -> VIENTO (si hay viento) */
-    return PILOT_AUTO;                                         /* STANDBY, VIENTO o TRACK -> AUTO */
+    if (cur == PILOT_WIND) return route ? PILOT_TRACK : PILOT_AUTO;     /* VIENTO -> TRACK o AUTO */
+    if (cur != PILOT_AUTO) return PILOT_AUTO;                           /* STANDBY o TRACK -> AUTO */
+    if (wind) return PILOT_WIND;                                        /* AUTO -> VIENTO */
+    if (route) return PILOT_TRACK;                                      /*      ... o TRACK */
+    return -1;                                                          /* AUTO sin viento ni ruta */
 }
 
 static void pilot_mode_cycle(uint32_t now)
@@ -396,9 +400,11 @@ static void pilot_mode_cycle(uint32_t now)
     int alive = radio_alive(&st_base, now, 5000);
     int cur = (alive && (nav.valid & NV_PILOT) && nav.pilot_mode <= PILOT_TRACK) ? nav.pilot_mode : mode_by_remote;
     int wind = alive && (nav.valid & NV_AWA) && (nav.valid & NV_AWS);
-    int next = next_mode(cur, wind);
-    if (next < 0) { beep_key(); flash_msg("SIN DATOS VIENTO", now, 1500); buz_beep(300); }
+    int route = alive && (nav.valid & NV_ROUTE);
+    int next = next_mode(cur, wind, route);
+    if (next < 0) { beep_key(); flash_msg("SIN VIENTO NI RUTA", now, 1500); buz_beep(300); }
     else if (next == PILOT_WIND) pilot(ST_KEY_WIND, "MODO VIENTO", now);
+    else if (next == PILOT_TRACK) pilot(ST_KEY_TRACK, "TRACK", now);
     else pilot(ST_KEY_AUTO, "AUTO", now);
 }
 
@@ -582,5 +588,5 @@ void ui_tick(uint32_t now)
 /* Solo para las pruebas en el PC (test/host) */
 void ui_test_enter_settings(void) { enter_settings(); }
 void ui_test_fmt(char *b, int32_t v, int dec) { fmt_fixed(b, v, dec); }
-int  ui_test_next_mode(int cur, int wind) { return next_mode(cur, wind); }
+int  ui_test_next_mode(int cur, int wind, int route) { return next_mode(cur, wind, route); }
 #endif
